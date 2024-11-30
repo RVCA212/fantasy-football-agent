@@ -1,7 +1,5 @@
 FROM langchain/langgraph-api:3.11
 
-
-
 ADD requirements.txt /deps/__outer_fantasy_chatbot/src/requirements.txt
 RUN PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt -r /deps/__outer_fantasy_chatbot/src/requirements.txt
 
