@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class SleeperClient:
-    def __init__(self, cache_path: str = '.cache'):
+    def __init__(self, cache_path: str = '../.cache'):
 
         # config
         self.cache_path = cache_path

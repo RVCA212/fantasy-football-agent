@@ -29,12 +29,17 @@ services:
         image: "fantasy-chatbot"
         ports:
             - "8123:8000"
+        healthcheck:
+            test: curl --request GET --url http://localhost:8000/ok
+            timeout: 1s
+            retries: 5
+            interval: 5s
         depends_on:
             langgraph-redis:
                 condition: service_healthy
             langgraph-postgres:
                 condition: service_healthy
-        env_file: ".env"
+        env_file: "../.env"
         environment:
             REDIS_URI: redis://langgraph-redis:6379
             POSTGRES_URI: postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable

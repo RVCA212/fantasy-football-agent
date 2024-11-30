@@ -7,11 +7,11 @@ from sleeper import SleeperClient
 from league import League
 from typing import Dict, Callable
 
-import config as cf
+import os
 
 from langgraph.pregel.remote import RemoteGraph
 
-url_for_langgraph_api = 'http://localhost:8123'
+url_for_langgraph_api = os.environ.get('LANGGRAPH_API_URL', 'http://localhost:8123')
 
 remote_graph = RemoteGraph('chatbot', url=url_for_langgraph_api)
 sleeper = SleeperClient()

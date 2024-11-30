@@ -197,19 +197,20 @@ Standings:
             # projections
             projections = self.client.get_player_projections(player_id)[str(self.client.nfl_state['display_week'])]
 
-            player_name = f"{player['first_name']} {player['last_name']}"
-            roster_details.append({
-                'name': player_name,
-                'position': player['position'],
-                'team': player['team'],
-                'position_rank': player['pos_rank_ppr'],
-                'overall_rank': player['rank_ppr'],
-                'is_current_starter': player_id in roster['starters'],
-                'projected_points': projections['stats']['pts_ppr'] if projections else None,
-                'opponent': projections['opponent'] if projections else None,
-                'injury_status': player['injury_status'],
-                'draft_position': self.get_player_draft_position(player_name),
-            })
+            if player:
+                player_name = f"{player['first_name']} {player['last_name']}"
+                roster_details.append({
+                    'name': player_name,
+                    'position': player['position'],
+                    'team': player['team'],
+                    'position_rank': player['pos_rank_ppr'],
+                    'overall_rank': player['rank_ppr'],
+                    'is_current_starter': player_id in roster['starters'],
+                    'projected_points': projections['stats']['pts_ppr'] if projections else None,
+                    'opponent': projections['opponent'] if projections else None,
+                    'injury_status': player['injury_status'],
+                    'draft_position': self.get_player_draft_position(player_name),
+                })
         return pd.DataFrame(roster_details)
 
     def get_roster_for_team_owner(self, owner: Annotated[str, "The username of the team owner."]) -> str:
