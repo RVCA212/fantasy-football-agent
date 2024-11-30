@@ -181,9 +181,12 @@ Standings:
         player_id, player_name = self.get_player_id_fuzzy_search(player_name)
         return self.player_id_to_draft_position.get(player_id, 'Undrafted')
 
-    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username of the team owner."]) -> pd.DataFrame:
+    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username of the team owner."]) -> Optional[pd.DataFrame]:
 
+        if owner not in self.username_to_user_id:
+            return None
         roster = self.user_id_to_roster[self.username_to_user_id[owner]]
+
         roster_bench = [p for p in set(roster['players']).difference(roster['starters'])]
 
         roster_details = []
@@ -215,7 +218,10 @@ Standings:
 
     def get_roster_for_team_owner(self, owner: Annotated[str, "The username of the team owner."]) -> str:
         """Retrieve roster details for a team based on the owner's username"""
-        return self.get_roster_for_team_owner_df(owner).to_markdown(index=False)
+        if roster_df := self.get_roster_for_team_owner_df(owner):
+            return roster_df.to_markdown(index=False)
+        else:
+            return f'Owner {owner} not found. Available owners: {list(self.username_to_user_id.keys())}'
 
     def get_best_available_at_position_df(self, position: Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']) -> pd.DataFrame:
         return pd.DataFrame(self.top_available_by_position[position])

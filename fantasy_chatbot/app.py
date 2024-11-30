@@ -68,13 +68,31 @@ if 'thread_id' not in st.session_state:
 if 'research' not in st.session_state:
     st.session_state.research = {}
 
-st.title('Fantasy Football Agent')
+st.set_page_config(
+    page_title='Sleeper Fantasy Football Agent',
+    page_icon=':football:'
+)
+st.title(':football: Fantasy Football Agent')
+
+with st.expander('Instructions', expanded=False):
+    st.markdown('This chatbot integrates with [Sleeper](https://sleeper.com) Fantasy Football leagues. '
+                'To get started, simply enter your Sleeper username and select the league you want to use. '
+                'The chatbot has access to league rosters, waiver wires, standings, stats, and news.'
+                'It will remember key, personalized details across sessions, so you can ask it to remind you about '
+                'a trade you were discussing last time, or tailor it to your particular style.\n\n'
+                'Some things you can ask about:\n'
+                '- Trade suggestions based on the league rosters and strengths/weaknesses \n'
+                '- Best available players for your squad\n'
+                '- Playoff projections and lineup recommendations\n'
+                '- Holistic reports analyzing player news\n'
+                'and more!\n'
+                'As you work in a session, the agent will save the research that it uses to the **sidebar**.'
+                'Use this as a reference to dive deeper into the numbers and reports. \n'
+                'At any time, click the **Reset** button to clear the chat session.')
+
 username = st.text_input('Sleeper Username')
 
 if username:
-    if st.button('Clear Chat'):
-        for k in st.session_state:
-            st.session_state.pop(k)
 
     user_id = sleeper.get_user(username)['user_id']
     available_leagues = sleeper.get_leagues_for_user(user_id)
@@ -84,6 +102,10 @@ if username:
     st.session_state['league_id'] = league_id
 
     if league_id:
+
+        if st.button('Clear Chat'):
+            for k in st.session_state:
+                st.session_state.pop(k)
 
         config = {
             'configurable': {
