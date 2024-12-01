@@ -6,6 +6,7 @@ import streamlit as st
 from sleeper import SleeperClient
 from league import League
 from typing import Dict, Callable
+import random
 
 import os
 
@@ -25,6 +26,7 @@ def get_tool_name_to_fn(config: RunnableConfig) -> Dict[str, Callable]:
         'get_player_news': league.get_player_news,
         'get_player_current_owner': league.get_player_current_owner,
         'get_best_available_at_position': league.get_best_available_at_position_df,
+        'get_player_rankings': league.get_player_rankings_df,
     }
     return tool_name_to_fn
 
@@ -53,12 +55,29 @@ def process_tool_calls(config: RunnableConfig):
                     tc_header = tc['name']
                     if tc['args']:
                         tc_header += f" ({', '.join(tc['args'].values())})"
-                    st.session_state['research'][tc['id']] = {
-                        'name': tc_header,
-                        'content': tool_name_to_fn[tc['name']](**tc['args'])
-                    }
+                    try:
+                        st.session_state['research'][tc['id']] = {
+                            'name': tc_header,
+                            'content': tool_name_to_fn[tc['name']](**tc['args'])
+                        }
+                    except:
+                        # if this tool call fails, don't break everything
+                        continue
 
-# Initialize chat history
+def get_random_placeholder():
+
+    return random.choice([
+        'how are my WRs looking?',
+        'which team in our league has the worst RB corps?',
+        'what gaps do you see in my lineup?',
+        'will Ceedee play this week?',
+        'do you think I will make the playoffs?',
+        'create some trade proposals for me that are mutually beneficial',
+        'good keeper options to consider?',
+        'I need to upgrade my TE. who is available?'
+    ])
+
+# Initialize state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -67,6 +86,9 @@ if 'thread_id' not in st.session_state:
 
 if 'research' not in st.session_state:
     st.session_state.research = {}
+
+if 'placeholder' not in st.session_state:
+    st.session_state.placeholder = get_random_placeholder()
 
 st.set_page_config(
     page_title='Sleeper Fantasy Football Agent',
@@ -104,8 +126,11 @@ if username:
     if league_id:
 
         if st.button('Clear Chat'):
-            for k in st.session_state:
-                st.session_state.pop(k)
+            # reset state
+            st.session_state.messages = []
+            st.session_state.thread_id = remote_graph.sync_client.threads.create()['thread_id']
+            st.session_state.research = {}
+            st.session_state.placeholder = get_random_placeholder()
 
         config = {
             'configurable': {
@@ -119,7 +144,7 @@ if username:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("What is up?"):
+        if prompt := st.chat_input(st.session_state.placeholder):
             # Display user message in chat message container
             with st.chat_message("user"):
                 st.markdown(prompt)

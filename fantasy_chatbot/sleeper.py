@@ -9,8 +9,11 @@ class SleeperClient:
 
         # config
         self.cache_path = cache_path
-        self.session = requests_cache.CachedSession(Path(cache_path) / 'api_cache', backend='sqlite',
-                                                    expire_after=60 * 60 * 24)
+        self.session = requests_cache.CachedSession(
+            Path(cache_path) / 'api_cache', 
+            backend='sqlite',
+            expire_after=60 * 60 * 24,
+        )
 
         # API URLs
         self.base_url = 'https://api.sleeper.app/v1/'

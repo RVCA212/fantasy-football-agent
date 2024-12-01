@@ -1,14 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
-import {Construct} from 'constructs';
+import { Construct } from 'constructs';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
-import {Protocol} from 'aws-cdk-lib/aws-ecs';
+import { Protocol } from 'aws-cdk-lib/aws-ecs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
 
-import {DockerImageAsset} from "aws-cdk-lib/aws-ecr-assets";
+import { DockerImageAsset } from "aws-cdk-lib/aws-ecr-assets";
 import * as path from 'path';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
@@ -18,7 +17,7 @@ export class FantasyFootballAgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // env variables
+    // read .env variables into map
     const envPath = path.join(__dirname, '../../.env');
     if (!fs.existsSync(envPath)) {
       throw new Error('.env file not found!');
@@ -30,10 +29,10 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       return acc;
     }, {} as { [key: string]: string });
 
-    // Create VPC for the cluster
+    // basic vpc
     const vpc = new ec2.Vpc(this, 'AgentVPC', {
-      maxAzs: 2,  // Use 2 Availability Zones
-      natGateways: 1  // Use 1 NAT Gateway to save costs
+      maxAzs: 2,  
+      natGateways: 1 
     });
 
     const serviceSecurityGroup = new ec2.SecurityGroup(this, 'serviceSecurityGroup', {
@@ -41,11 +40,11 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       vpc: vpc,
     });
 
-    // Create the ECS Cluster
+    // ecs cluster
     const cluster = new ecs.Cluster(this, 'AgentCluster', {
       vpc,
       clusterName: 'fantasy-football-agent-cluster',
-      containerInsights: true  // Enable Container Insights for monitoring
+      containerInsights: true 
     });
 
     const executionRole = new iam.Role(this, 'executionRole', {
@@ -63,7 +62,7 @@ export class FantasyFootballAgentStack extends cdk.Stack {
           'logs:PutLogEvents',
           'logs:CreateLogGroup'
         ],
-        resources: ['*']  // You might want to restrict this to specific log groups
+        resources: ['*'] 
       })
     );
 
@@ -72,7 +71,8 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       memoryLimitMiB: 4096,
       cpu: 1024,
     });
-
+    
+    // bedrock model access
     const bedrockInvokePolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -134,6 +134,7 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       }),
     });
 
+    // networking within the same ECS service exposes each container at localhost
     const apiImageAsset = new DockerImageAsset(this, 'apiImageAsset', {
       directory: path.join(__dirname, '../../fantasy_chatbot'),
       file: 'api.Dockerfile',
@@ -202,7 +203,7 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       vpcSubnets: vpc.selectSubnets({subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS}),
     });
 
-    // Create a security group for the ALB
+    // security group for the ALB
     const albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
       vpc,
       allowAllOutbound: true,
@@ -235,12 +236,9 @@ export class FantasyFootballAgentStack extends cdk.Stack {
       'Allow internal traffic'
     );
 
-
     const listener = alb.addListener('Listener', {
       port: 80,
     });
-
-    // Add target group to the listener with the correct port
     listener.addTargets('AgentTarget', {
       port: 8501,
       targets: [
@@ -255,15 +253,15 @@ export class FantasyFootballAgentStack extends cdk.Stack {
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         unhealthyThresholdCount: 5,
-        port: '8501'  // Specify health check port
+        port: '8501' 
       },
       protocol: elbv2.ApplicationProtocol.HTTP
     });
 
 
-    // Output the ALB DNS name
+    // output the ALB DNS name
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
-      value: alb.loadBalancerDnsName,
+      value: `http://${alb.loadBalancerDnsName}`,
       description: 'Load balancer DNS'
     });
 

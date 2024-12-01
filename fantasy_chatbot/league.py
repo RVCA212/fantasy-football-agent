@@ -94,9 +94,9 @@ class League:
 
     def get_player_current_owner(self, player_name: str) -> str:
         """Get a player's current owner. If they are not on a team, they are a free agent"""
-        player_id, _ = self.get_player_id_fuzzy_search(player_name)
+        player_id, player_name = self.get_player_id_fuzzy_search(player_name)
 
-        return self.player_id_to_owner.get(player_id, 'Free Agent')
+        return f'Current owner of {player_name} is ' + self.player_id_to_owner.get(player_id, 'Free Agent')
 
     def get_league_standings_df(self) -> pd.DataFrame:
         standings = self.client.get_league_standings(self.league_id)
@@ -140,7 +140,8 @@ Standings:
         for week in range(1, self.client.nfl_state['display_week']):
             stats_for_week = player_stats[str(week)] or {'opponent': None, 'stats': {'pts_ppr': 0}}
             weekly_stats.append({
-                'week': week, 'opponent': stats_for_week['opponent'],
+                'week': week, 
+                'opponent': stats_for_week['opponent'],
                 'points': stats_for_week['stats'].get('pts_ppr', 0)
             })
         return pd.DataFrame(weekly_stats)
@@ -180,6 +181,31 @@ Standings:
         """
         player_id, player_name = self.get_player_id_fuzzy_search(player_name)
         return self.player_id_to_draft_position.get(player_id, 'Undrafted')
+    
+    def get_player_rankings_df(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> pd.DataFrame:
+        
+        players_at_position = filter(lambda x: x['position'] == position, self.player_data.values()) if position else self.player_data.values()
+        sort_key = 'pos_rank_ppr' if position else 'rank_ppr'
+
+        player_rankings: list[dict] = []
+        for player in sorted(players_at_position, key=lambda x: x[sort_key])[:30]:
+            player_name = f"{player['first_name']} {player['last_name']}"
+            player_rankings.append({
+                'name': player_name,
+                'position': player['position'],
+                'team': player['team'],
+                'pos_rank_ppr': player['pos_rank_ppr'],
+                'rank_ppr': player['rank_ppr'],
+                'injury_status': player['injury_status'],
+                'draft_position': self.get_player_draft_position(player_name),
+            })
+        return pd.DataFrame(player_rankings).sort_values(sort_key)
+    
+    def get_player_rankings(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> str:
+        """Get scoring rankings for the season so far. Can be broken down by position by providing an optional `position` arg. 
+        If `position` is unspecified or null, overall rankings will be returned."""
+
+        return f'Rankings so far for position {position or "overall"}\n\n' + self.get_player_rankings_df(position).to_markdown(index=False)
 
     def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username of the team owner."]) -> Optional[pd.DataFrame]:
 
@@ -218,8 +244,9 @@ Standings:
 
     def get_roster_for_team_owner(self, owner: Annotated[str, "The username of the team owner."]) -> str:
         """Retrieve roster details for a team based on the owner's username"""
-        if roster_df := self.get_roster_for_team_owner_df(owner):
-            return roster_df.to_markdown(index=False)
+        roster_df = self.get_roster_for_team_owner_df(owner)
+        if roster_df is not None:
+            return f'Roster for {owner}:\n\n' + roster_df.to_markdown(index=False)
         else:
             return f'Owner {owner} not found. Available owners: {list(self.username_to_user_id.keys())}'
 

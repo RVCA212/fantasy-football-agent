@@ -1,14 +1,15 @@
 import os
-from typing import TypedDict, Optional
+from typing import TypedDict, Dict, Callable
 from langchain_aws import ChatBedrockConverse
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState
-from langchain_core.messages import RemoveMessage, HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import RemoveMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.store.base import BaseStore
 from langchain_core.runnables.config import RunnableConfig
+from langchain_core.tools import BaseTool, tool as create_tool
 
 from langgraph.graph import START, END, StateGraph
-from langgraph.prebuilt import tools_condition, ToolNode
+from langgraph.prebuilt import tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 from pydantic_core import ValidationError
@@ -33,7 +34,7 @@ class SummarizedMessagesState(MessagesState):
 try:
     llm = ChatBedrockConverse(
         model=cf.MODEL_ID_BEDROCK,
-        credentials_profile_name=os.environ['AWS_DEFAULT_PROFILE'],
+        credentials_profile_name=os.environ.get('AWS_DEFAULT_PROFILE', 'default'),
     )
 except ValidationError:
     llm = ChatOpenAI(model=cf.MODEL_ID_OPENAI, temperature=0)
@@ -42,15 +43,17 @@ llm_with_structure = llm.with_structured_output(UserProfile)
 
 sleeper = SleeperClient()
 
-def get_tools(league: League = League(cf.DEFAULT_LEAGUE_ID)):
-    return [
+def get_tools(league: League = League(cf.DEFAULT_LEAGUE_ID)) -> list[BaseTool]:
+    tools = [
         league.get_league_status,
         league.get_roster_for_team_owner,
         league.get_player_news,
         league.get_player_stats,
         league.get_player_current_owner,
         league.get_best_available_at_position,
+        league.get_player_rankings,
     ]
+    return [create_tool(t) for t in tools]
 
 
 def assistant(state: SummarizedMessagesState, config: RunnableConfig, store: BaseStore):
@@ -143,12 +146,24 @@ def should_summarize(state: SummarizedMessagesState):
     return END
 
 
+def tool_node(state: SummarizedMessagesState, config: RunnableConfig):
+    """tools are specific to the league_id"""
+    league = League(config['configurable']['league_id'])
+    tools_by_name = {t.name: t for t in get_tools(league)}
+
+    result = []
+    for tool_call in state["messages"][-1].tool_calls:
+        tool = tools_by_name[tool_call["name"]]
+        observation = tool.invoke(tool_call["args"])
+        result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
+    return {"messages": result}
+
 # Graph
 builder = StateGraph(MessagesState, config_schema=Configuration)
 
 # Define nodes: these do the work
 builder.add_node("assistant", assistant)
-builder.add_node("tools", ToolNode(get_tools()))
+builder.add_node("tools", tool_node)
 builder.add_node("write_memory", write_memory)
 
 # Define edges: these determine how the control flow moves
