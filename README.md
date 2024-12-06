@@ -6,7 +6,7 @@ For the full details, check out the article in [Towards Data Science](https://to
 
 ## Demo Video
 
-[![Demo Video - Click to watch on YouTube](static/demo-video.png)](https://www.youtube.com/watch?v=kjdgbJ14EQE "Demo Video - Click to watch on YouTube)
+[![Demo Video - Click to watch on YouTube](static/demo-video.png)](https://www.youtube.com/watch?v=kjdgbJ14EQE "Demo Video - Click to watch on YouTube")
 
 
 
