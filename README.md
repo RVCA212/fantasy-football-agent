@@ -1,6 +1,16 @@
 ## Fantasy Football Chatbot
 
-Prerequisites:
+This repo contains a full-stack application covering integration with the Sleeper API, creation of a Streamlit UI, and deployment via AWS CDK.
+
+For the full details, check out the article in [Towards Data Science](https://towardsdatascience.com/building-a-fantasy-football-research-agent-with-langgraph-ad8deb0126f1)!
+
+## Demo Video
+
+[![Demo Video - Click to watch on YouTube](static/demo-video.png)](https://www.youtube.com/watch?v=kjdgbJ14EQE "Demo Video - Click to watch on YouTube)
+
+
+
+## Prerequisites:
 
 - `cp .env.template .env`
 - Add relevant keys to `.env`
@@ -33,5 +43,6 @@ The app should now be available locally at `http://localhost:8501`
 
 - `cd deploy`
 - `npm i`
-- Synthesize the stack with `npm run cdk synth`
+- Deploy the stack with `npm run cdk deploy`
+- The URL to the Load Balancer will be available in the Stack Outputs.
 
