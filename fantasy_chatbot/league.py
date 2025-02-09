@@ -31,7 +31,22 @@ class League:
 
         # matchups are more useful for getting starters by week
         self.matchups = client.get_league_matchups(league_id, week=week)
-        self.user_id_to_roster = {self.roster_id_to_user_id[m['roster_id']]: m for m in self.matchups}
+
+        # Build user_id_to_roster from rosters instead of matchups to ensure all users are included
+        self.user_id_to_roster = {}
+        for roster in self.rosters:
+            user_id = roster['owner_id']
+            # Get matchup data if available, otherwise use roster data
+            matchup = next((m for m in self.matchups if m['roster_id'] == roster['roster_id']), None)
+            if matchup:
+                self.user_id_to_roster[user_id] = matchup
+            else:
+                # If no matchup, create a roster entry with players but no starters
+                self.user_id_to_roster[user_id] = {
+                    'roster_id': roster['roster_id'],
+                    'players': roster['players'],
+                    'starters': roster['starters'] if 'starters' in roster else []
+                }
 
         # player to owner
         self.player_id_to_owner = {}
@@ -140,7 +155,7 @@ Standings:
         for week in range(1, self.client.nfl_state['display_week']):
             stats_for_week = player_stats[str(week)] or {'opponent': None, 'stats': {'pts_ppr': 0}}
             weekly_stats.append({
-                'week': week, 
+                'week': week,
                 'opponent': stats_for_week['opponent'],
                 'points': stats_for_week['stats'].get('pts_ppr', 0)
             })
@@ -181,9 +196,9 @@ Standings:
         """
         player_id, player_name = self.get_player_id_fuzzy_search(player_name)
         return self.player_id_to_draft_position.get(player_id, 'Undrafted')
-    
+
     def get_player_rankings_df(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> pd.DataFrame:
-        
+
         players_at_position = filter(lambda x: x['position'] == position, self.player_data.values()) if position else self.player_data.values()
         sort_key = 'pos_rank_ppr' if position else 'rank_ppr'
 
@@ -200,46 +215,75 @@ Standings:
                 'draft_position': self.get_player_draft_position(player_name),
             })
         return pd.DataFrame(player_rankings).sort_values(sort_key)
-    
+
     def get_player_rankings(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> str:
-        """Get scoring rankings for the season so far. Can be broken down by position by providing an optional `position` arg. 
+        """Get scoring rankings for the season so far. Can be broken down by position by providing an optional `position` arg.
         If `position` is unspecified or null, overall rankings will be returned."""
 
         return f'Rankings so far for position {position or "overall"}\n\n' + self.get_player_rankings_df(position).to_markdown(index=False)
 
-    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username of the team owner."]) -> Optional[pd.DataFrame]:
-
-        if owner not in self.username_to_user_id:
+    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username or user ID of the team owner."]) -> Optional[pd.DataFrame]:
+        # First try username lookup
+        if owner in self.username_to_user_id:
+            user_id = self.username_to_user_id[owner]
+        # If that fails, check if it's already a user ID
+        elif owner in self.user_id_to_user:
+            user_id = owner
+        else:
             return None
-        roster = self.user_id_to_roster[self.username_to_user_id[owner]]
+
+        # Validate all required user relationships exist
+        if not all([
+            user_id in self.user_id_to_user,
+            user_id in self.user_id_to_roster,
+            user_id in self.user_id_to_roster_id
+        ]):
+            return None
+
+        try:
+            roster = self.user_id_to_roster[user_id]
+        except KeyError:
+            return None
 
         roster_bench = [p for p in set(roster['players']).difference(roster['starters'])]
 
         roster_details = []
-
         for player_id in roster['starters'] + roster_bench:
             try:
                 player = self.player_data[player_id]
             except KeyError:
                 player = self.client.get_player(player_id)
 
-            # projections
-            projections = self.client.get_player_projections(player_id)[str(self.client.nfl_state['display_week'])]
+            if not player:
+                continue
 
-            if player:
-                player_name = f"{player['first_name']} {player['last_name']}"
-                roster_details.append({
-                    'name': player_name,
-                    'position': player['position'],
-                    'team': player['team'],
-                    'position_rank': player['pos_rank_ppr'],
-                    'overall_rank': player['rank_ppr'],
-                    'is_current_starter': player_id in roster['starters'],
-                    'projected_points': projections['stats']['pts_ppr'] if projections else None,
-                    'opponent': projections['opponent'] if projections else None,
-                    'injury_status': player['injury_status'],
-                    'draft_position': self.get_player_draft_position(player_name),
-                })
+            # Safely get projections with error handling
+            try:
+                week_projections = self.client.get_player_projections(player_id)
+                current_week = str(self.client.nfl_state['display_week'])
+                projections = week_projections.get(current_week, {}) if week_projections else {}
+
+                # Safely access nested projection data
+                proj_stats = projections.get('stats', {})
+                projected_points = proj_stats.get('pts_ppr')
+                opponent = projections.get('opponent')
+            except Exception:
+                projected_points = None
+                opponent = None
+
+            player_name = f"{player['first_name']} {player['last_name']}"
+            roster_details.append({
+                'name': player_name,
+                'position': player['position'],
+                'team': player['team'],
+                'position_rank': player['pos_rank_ppr'],
+                'overall_rank': player['rank_ppr'],
+                'is_current_starter': player_id in roster['starters'],
+                'projected_points': projected_points,  # Using safely accessed value
+                'opponent': opponent,  # Using safely accessed value
+                'injury_status': player['injury_status'],
+                'draft_position': self.get_player_draft_position(player_name),
+            })
         return pd.DataFrame(roster_details)
 
     def get_roster_for_team_owner(self, owner: Annotated[str, "The username of the team owner."]) -> str:
