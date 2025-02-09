@@ -32,12 +32,12 @@ class SummarizedMessagesState(MessagesState):
     summary: str
 
 try:
-    llm = ChatBedrockConverse(
-        model=cf.MODEL_ID_BEDROCK,
-        credentials_profile_name=os.environ.get('AWS_DEFAULT_PROFILE', 'default'),
+    llm = ChatOpenAI(
+        model="o3-mini",
+        api_key=os.environ.get('OPENAI_API_KEY'),
     )
 except ValidationError:
-    llm = ChatOpenAI(model=cf.MODEL_ID_OPENAI, temperature=0)
+    llm = ChatOpenAI(model="o3-mini", api_key=os.environ.get('OPENAI_API_KEY'), temperature=0)
 
 llm_with_structure = llm.with_structured_output(UserProfile)
 
