@@ -10,7 +10,7 @@ class SleeperClient:
         # config
         self.cache_path = cache_path
         self.session = requests_cache.CachedSession(
-            Path(cache_path) / 'api_cache', 
+            Path(cache_path) / 'api_cache',
             backend='sqlite',
             expire_after=60 * 60 * 24,
         )
@@ -57,9 +57,9 @@ class SleeperClient:
         )
         player_ranks = self._get_ranks(season or self.nfl_state['season'])
         if limit:
-            return {p['player_id']: {**p['player'], **player_ranks[p['player_id']]} for p in res[:limit]}
+            return {p['player_id']: {**p['player'], **player_ranks.get(p['player_id'], {})} for p in res[:limit]}
         else:
-            return {p['player_id']: {**p['player'], **player_ranks[p['player_id']]} for p in res}
+            return {p['player_id']: {**p['player'], **player_ranks.get(p['player_id'], {})} for p in res}
 
     def get_player_stats(self, player_id: Union[str, int], season: Optional[int] = None, group_by_week: bool = False):
         return self._get_json(
@@ -116,7 +116,7 @@ class SleeperClient:
                 data
                 last_updated
                 created
-            }}    
+            }}
         }}"""
         return sorted(self._graphql(operation_name='metadata', query=query)['data']['metadata']['data']['standings'],
                       key=lambda x: (x['wins'], x['fpts']), reverse=True)
