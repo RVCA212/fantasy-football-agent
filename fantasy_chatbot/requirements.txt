@@ -10,7 +10,7 @@ notebook
 tavily-python
 wikipedia
 trustcall
-langgraph-cli
+langgraph-cli[inmem]
 rapidfuzz
 tabulate
 pandas
