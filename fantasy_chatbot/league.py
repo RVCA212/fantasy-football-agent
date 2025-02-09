@@ -140,7 +140,7 @@ Standings:
         for week in range(1, self.client.nfl_state['display_week']):
             stats_for_week = player_stats[str(week)] or {'opponent': None, 'stats': {'pts_ppr': 0}}
             weekly_stats.append({
-                'week': week, 
+                'week': week,
                 'opponent': stats_for_week['opponent'],
                 'points': stats_for_week['stats'].get('pts_ppr', 0)
             })
@@ -181,9 +181,9 @@ Standings:
         """
         player_id, player_name = self.get_player_id_fuzzy_search(player_name)
         return self.player_id_to_draft_position.get(player_id, 'Undrafted')
-    
+
     def get_player_rankings_df(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> pd.DataFrame:
-        
+
         players_at_position = filter(lambda x: x['position'] == position, self.player_data.values()) if position else self.player_data.values()
         sort_key = 'pos_rank_ppr' if position else 'rank_ppr'
 
@@ -200,18 +200,24 @@ Standings:
                 'draft_position': self.get_player_draft_position(player_name),
             })
         return pd.DataFrame(player_rankings).sort_values(sort_key)
-    
+
     def get_player_rankings(self, position: Optional[Literal['QB', 'RB', 'WR', 'TE', 'K', 'DEF']] = None) -> str:
-        """Get scoring rankings for the season so far. Can be broken down by position by providing an optional `position` arg. 
+        """Get scoring rankings for the season so far. Can be broken down by position by providing an optional `position` arg.
         If `position` is unspecified or null, overall rankings will be returned."""
 
         return f'Rankings so far for position {position or "overall"}\n\n' + self.get_player_rankings_df(position).to_markdown(index=False)
 
-    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username of the team owner."]) -> Optional[pd.DataFrame]:
-
-        if owner not in self.username_to_user_id:
+    def get_roster_for_team_owner_df(self, owner: Annotated[str, "The username or user ID of the team owner."]) -> Optional[pd.DataFrame]:
+        # First try username lookup
+        if owner in self.username_to_user_id:
+            user_id = self.username_to_user_id[owner]
+        # If that fails, check if it's already a user ID
+        elif owner in self.user_id_to_user:
+            user_id = owner
+        else:
             return None
-        roster = self.user_id_to_roster[self.username_to_user_id[owner]]
+
+        roster = self.user_id_to_roster[user_id]
 
         roster_bench = [p for p in set(roster['players']).difference(roster['starters'])]
 
