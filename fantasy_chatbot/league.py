@@ -232,11 +232,18 @@ Standings:
         else:
             return None
 
-        # Check if user_id exists in user_id_to_roster
-        if user_id not in self.user_id_to_roster:
+        # Validate all required user relationships exist
+        if not all([
+            user_id in self.user_id_to_user,
+            user_id in self.user_id_to_roster,
+            user_id in self.user_id_to_roster_id
+        ]):
             return None
 
-        roster = self.user_id_to_roster[user_id]
+        try:
+            roster = self.user_id_to_roster[user_id]
+        except KeyError:
+            return None
 
         roster_bench = [p for p in set(roster['players']).difference(roster['starters'])]
 
